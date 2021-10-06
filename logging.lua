@@ -1,6 +1,24 @@
+--[[
 
---file and tcp logging with capped disk & memory usage.
---Written by Cosmin Apreutesei. Public domain.
+	file and tcp logging with capped disk & memory usage.
+	Written by Cosmin Apreutesei. Public domain.
+
+	logging.log(severity, module, event, fmt, ...)
+	logging.note(module, event, fmt, ...)
+	logging.nolog(module, event, fmt, ...)
+	logging.dbg(module, event, fmt, ...)
+	logging.warnif(module, event, condition, fmt, ...)
+	logging.logerror(module, event, fmt, ...)
+
+	logging.args(...) -> ...
+
+	debug.env <- 'dev' | 'prod', etc.
+	logging.filter <- {severity->true}
+
+	logging:tofile(logfile, max_disk_size)
+	logging:toserver(host, port, queue_size, timeout)
+
+]]
 
 local ffi = require'ffi'
 local queue = require'queue'
@@ -118,7 +136,7 @@ function logging:toserver(host, port, queue_size, timeout)
 end
 
 logging.filter = {}
-logging.env    = 'dev'
+debug.env = debug.env or 'dev'
 
 local names = setmetatable({}, {__mode = 'k'}) --{[obj]->name}
 
@@ -194,7 +212,7 @@ end
 
 local function log(self, severity, module, event, fmt, ...)
 	if self.filter[severity] then return end
-	local env1 = self.env:upper():sub(1, 1)
+	local env1 = debug.env:upper():sub(1, 1)
 	local time = time()
 	local date = os.date('%Y-%m-%d %H:%M:%S', time)
 	local msg = fmt and _(fmt, self.args(...))
@@ -207,7 +225,7 @@ local function log(self, severity, module, event, fmt, ...)
 		end
 		if self.logtoserver then
 			self:logtoserver{
-				env = self.env, time = time,
+				env = debug.env, time = time,
 				severity = severity, module = module, event = event,
 				message = msg,
 			}
