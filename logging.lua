@@ -136,7 +136,6 @@ function logging:toserver(host, port, queue_size, timeout)
 end
 
 logging.filter = {}
-debug.env = debug.env or 'dev'
 
 local names = setmetatable({}, {__mode = 'k'}) --{[obj]->name}
 
@@ -212,11 +211,11 @@ end
 
 local function log(self, severity, module, event, fmt, ...)
 	if self.filter[severity] then return end
-	local env1 = debug.env:upper():sub(1, 1)
+	local env = debug.env and debug.env:upper():sub(1, 1) or 'D'
 	local time = time()
 	local date = os.date('%Y-%m-%d %H:%M:%S', time)
 	local msg = fmt and _(fmt, self.args(...))
-	local entry = _('%s %s %-6s %-6s %-8s %s\n', env1, date,
+	local entry = _('%s %s %-6s %-6s %-8s %s\n', env, date,
 		severity, module or '', event or '',
 		msg and msg:gsub('\r?\n', '\n                                    ') or '')
 	if severity ~= '' then
