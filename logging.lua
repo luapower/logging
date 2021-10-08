@@ -39,23 +39,23 @@ function logging:tofile(logfile, max_size)
 
 	local f, size
 
-	local function check(s, ret, err)
+	local function check(event, ret, err)
 		if ret then return ret end
-		io.stderr:write(_('file_logging %s error: %s\n', s, err))
+		self.nolog('logging', event, '%s', err)
 		if f then f:close(); f = nil end
 	end
 
 	local function open()
 		if f then return true end
-		f = check('fs.open()', fs.open(logfile, 'a')); if not f then return end
-		size = check("f:attr'size'", f:attr'size'); if not f then return end
+		f = check('open', fs.open(logfile, 'a')); if not f then return end
+		size = check('size', f:attr'size'); if not f then return end
 		return true
 	end
 
 	local function rotate(len)
 		if max_size and size + len > max_size / 2 then
 			f:close(); f = nil
-			if not check('fs.move()', fs.move(logfile, logfile0)) then return end
+			if not check('move', fs.move(logfile, logfile0)) then return end
 			if not open() then return end
 		end
 		return true
@@ -77,32 +77,34 @@ function logging:toserver(host, port, queue_size, timeout)
 	local sock = require'sock'
 
 	local tcp
-	local queue = queue.new(queue_size or 1/0)
 
-	local function check(s, ret, err)
+	local function check(event, ret, err)
 		if ret then return ret end
-		io.stderr:write(_('tcp_logging %s error: %s\n', s, err))
+		self.nolog('logging', event, '%s', err)
 	end
 
-	local function check_io(s, ret, err)
+	local function check_io(event, ret, err)
 		if ret then return ret end
-		check(s, ret, err)
+		check(event, ret, err)
 		if tcp then tcp:close(); tcp = nil end
 	end
 
 	local function connect()
 		if tcp then return tcp end
-		tcp = check_io('sock.tcp()', sock.tcp()); if not tcp then return end
+		tcp = check_io('sock.tcp', sock.tcp()); if not tcp then return end
 		local exp = timeout and clock() + timeout
-		if not check_io('tcp:connect()', tcp:connect(host, port, exp)) then return end
+		if not check_io('connect', tcp:connect(host, port, exp)) then return end
 		return true
 	end
 
+	local queue = queue.new(queue_size or 1/0)
 	local send_thread_suspended = true
+	local stop
+
 	local send_thread = sock.newthread(function()
 		send_thread_suspended = false
-		local lenbuf = ffi.new'int[1]'
-		while true do
+		local lenbuf = ffi.new'uint32_t[1]'
+		while not stop do
 			local msg = queue:peek()
 			if msg then
 				if connect() then
@@ -110,7 +112,7 @@ function logging:toserver(host, port, queue_size, timeout)
 					lenbuf[0] = #s
 					local len = ffi.string(lenbuf, ffi.sizeof(lenbuf))
 					local exp = timeout and clock() + timeout
-					if check('tcp:send()', tcp:send(len..s, nil, exp)) then
+					if check('send', tcp:send(len..s, nil, exp)) then
 						queue:pop()
 					end
 				end
@@ -120,10 +122,12 @@ function logging:toserver(host, port, queue_size, timeout)
 				send_thread_suspended = false
 			end
 		end
+		tcp:close()
+		self.logtoserver = nil
 	end)
 
 	function self:logtoserver(msg)
-		if not check('queue:push()', queue:push(msg)) then
+		if not check('push', queue:push(msg)) then
 			queue:pop()
 			queue:push(msg)
 		end
@@ -132,8 +136,17 @@ function logging:toserver(host, port, queue_size, timeout)
 		end
 	end
 
+	function self:toserver_stop()
+		stop = true
+		if send_thread_suspended then
+			sock.resume(send_thread)
+		end
+	end
+
 	return self
 end
+
+function logging:toserver_stop() end
 
 logging.filter = {}
 
@@ -230,8 +243,10 @@ local function log(self, severity, module, event, fmt, ...)
 			}
 		end
 	end
-	io.stderr:write(entry)
-	io.stderr:flush()
+	if not self.quiet then
+		io.stderr:write(entry)
+		io.stderr:flush()
+	end
 end
 local function note  (self, ...) log(self, 'note', ...) end
 local function nolog (self, ...) log(self, '', ...) end
@@ -286,6 +301,8 @@ if not ... then
 		local t2 = coroutine.create(function() end)
 
 		logging.dbg('test-m', 'test-ev', '%s %s %s %s\nanother thing', s1, s2, t1, t2)
+
+		logging:toserver()
 
 	end)
 
