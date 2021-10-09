@@ -22,6 +22,7 @@
 local ffi = require'ffi'
 local time = require'time'
 local pp = require'pp'
+local glue = require'glue'
 
 local clock = time.clock
 local time = time.time
@@ -199,10 +200,13 @@ local function debug_arg(v)
 	elseif v == nil or type(v) == 'number' then
 		return tostring(v)
 	elseif type(v) == 'string' then
+		if v:find('\n', 1, true) then --multiline
+			v = v:gsub('\r\n', '\n')
+			v = glue.outdent(v, '\t\t\t')
+			v = '\n\n'..v
+		end
+		v = v:gsub('[%z\1-\8\11-\31\128-\255]', '.')
 		return v
-			:gsub('\r\n', '\n')
-			:gsub('\n%s*$', '')
-			:gsub('[%z\1-\9\11-\31\128-\255]', '.') or ''
 	else --table, function, thread, cdata
 		return names[v]
 			or (getmetatable(v) and getmetatable(v).__tostring and tostring(v))
@@ -228,9 +232,9 @@ local function log(self, severity, module, event, fmt, ...)
 	local time = time()
 	local date = os.date('%Y-%m-%d %H:%M:%S', time)
 	local msg = fmt and _(fmt, self.args(...))
-	local entry = _('%s %s %-6s %-6s %-8s %s\n', env, date,
-		severity, module or '', event or '',
-		msg and msg:gsub('\r?\n', '\n                                    ') or '')
+	local entry = _('%s %s %-6s %-6s %-8s %-4s %s\n',
+		env, date, severity, module or '', event or '',
+		debug_arg(coroutine.running()), msg or '')
 	if severity ~= '' then
 		if self.logtofile then
 			self:logtofile(entry)
