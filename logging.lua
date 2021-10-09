@@ -28,7 +28,7 @@ local clock = time.clock
 local time = time.time
 local _ = string.format
 
-local logging = {}
+local logging = {quiet = false, flush = false}
 
 function logging:tofile(logfile, max_size)
 
@@ -66,7 +66,7 @@ function logging:tofile(logfile, max_size)
 		if not rotate(#s + 1) then return end
 		size = size + #s + 1
 		if not check('write', f:write(s)) then return end
-		if not check('flush', f:flush()) then return end
+		if self.flush and not check('flush', f:flush()) then return end
 	end
 
 	return self
@@ -235,7 +235,7 @@ local function log(self, severity, module, event, fmt, ...)
 	local entry = _('%s %s %-6s %-6s %-8s %-4s %s\n',
 		env, date, severity, module or '', event or '',
 		debug_arg(coroutine.running()), msg or '')
-	if severity ~= '' then
+	if severity ~= '' then --debug messages are transient
 		if self.logtofile then
 			self:logtofile(entry)
 		end
