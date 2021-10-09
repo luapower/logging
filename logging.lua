@@ -203,7 +203,7 @@ local function debug_arg(v)
 		if v:find('\n', 1, true) then --multiline
 			v = v:gsub('\r\n', '\n')
 			v = glue.outdent(v, '\t\t\t')
-			v = '\n\n'..v
+			v = '\n\n'..v..'\n'
 		end
 		v = v:gsub('[%z\1-\8\11-\31\128-\255]', '.')
 		return v
