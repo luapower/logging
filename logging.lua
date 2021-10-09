@@ -21,11 +21,11 @@
 ]]
 
 local ffi = require'ffi'
-local queue = require'queue'
 local time = require'time'
+local pp = require'pp'
+
 local clock = time.clock
 local time = time.time
-local pp = require'pp'
 local _ = string.format
 
 local logging = {}
@@ -75,6 +75,7 @@ end
 function logging:toserver(host, port, queue_size, timeout)
 
 	local sock = require'sock'
+	local queue = require'queue'
 
 	local tcp
 
