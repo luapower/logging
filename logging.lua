@@ -5,7 +5,6 @@
 
 	logging.log(severity, module, event, fmt, ...)
 	logging.note(module, event, fmt, ...)
-	logging.nolog(module, event, fmt, ...)
 	logging.dbg(module, event, fmt, ...)
 	logging.warnif(module, event, condition, fmt, ...)
 	logging.logerror(module, event, fmt, ...)
@@ -41,7 +40,7 @@ function logging:tofile(logfile, max_size)
 
 	local function check(event, ret, err)
 		if ret then return ret end
-		self.nolog('logging', event, '%s', err)
+		self.log('', 'logging', event, '%s', err)
 		if f then f:close(); f = nil end
 	end
 
@@ -81,7 +80,7 @@ function logging:toserver(host, port, queue_size, timeout)
 
 	local function check(event, ret, err)
 		if ret then return ret end
-		self.nolog('logging', event, '%s', err)
+		self.log('', 'logging', event, '%s', err)
 	end
 
 	local function check_io(event, ret, err)
@@ -123,7 +122,7 @@ function logging:toserver(host, port, queue_size, timeout)
 				send_thread_suspended = false
 			end
 		end
-		tcp:close()
+		check_io('stop', nil, '')
 		self.logtoserver = nil
 	end)
 
@@ -250,7 +249,6 @@ local function log(self, severity, module, event, fmt, ...)
 	end
 end
 local function note  (self, ...) log(self, 'note', ...) end
-local function nolog (self, ...) log(self, '', ...) end
 local function dbg   (self, ...) log(self, '', ...) end
 
 local function warnif(self, module, event, cond, ...)
@@ -265,7 +263,6 @@ end
 local function init(self)
 	self.log      = function(...) return log      (self, ...) end
 	self.note     = function(...) return note     (self, ...) end
-	self.nolog    = function(...) return nolog    (self, ...) end
 	self.dbg      = function(...) return dbg      (self, ...) end
 	self.warnif   = function(...) return warnif   (self, ...) end
 	self.logerror = function(...) return logerror (self, ...) end
@@ -283,9 +280,17 @@ end
 if not ... then
 
 	local sock = require'sock'
+
+	local logging = logging.new()
+
+	sock.thread(function()
+		sock.sleep(5)
+		logging:toserver_stop()
+		print'told to stop'
+	end)
+
 	sock.run(function()
 
-		local logging = logging.new()
 		logging:tofile('test.log', 64000)
 		logging:toserver('127.0.0.1', 1234, 998, .5)
 
@@ -302,8 +307,6 @@ if not ... then
 		local t2 = coroutine.create(function() end)
 
 		logging.dbg('test-m', 'test-ev', '%s %s %s %s\nanother thing', s1, s2, t1, t2)
-
-		logging:toserver()
 
 	end)
 
