@@ -41,7 +41,7 @@ function logging:tofile(logfile, max_size)
 
 	local function check(event, ret, err)
 		if ret then return ret end
-		self.log('', 'logging', event, '%s', err)
+		self.log('', 'log', event, '%s', err)
 		if f then f:close(); f = nil end
 	end
 
@@ -81,7 +81,7 @@ function logging:toserver(host, port, queue_size, timeout)
 
 	local function check(event, ret, err)
 		if ret then return ret end
-		self.log('', 'logging', event, '%s', err)
+		self.log('', 'log', event, '%s', err)
 	end
 
 	local function check_io(event, ret, err)
