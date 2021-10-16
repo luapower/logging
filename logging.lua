@@ -159,21 +159,18 @@ end
 
 logging.name(coroutine.running(), 'TM')
 
-local function has_fields(v)
-	return type(v) == 'table' or type(v) == 'cdata'
-end
-
 local function debug_type(v)
-	return has_fields(v) and v.type or type(v)
+	return type(v) == 'table' and v.type or type(v)
 end
 
 local prefixes = {
 	thread = 'T',
 	['function'] = 'f',
+	cdata = 'c',
 }
 
 local function debug_prefix(v)
-	return has_fields(v) and v.debug_prefix or prefixes[debug_type(v)]
+	return type(v) == 'table' and v.debug_prefix or prefixes[debug_type(v)]
 end
 
 local ids_db = {} --{type->{last_id=,[obj]->id}}
