@@ -28,7 +28,7 @@ local clock = time.clock
 local time = time.time
 local _ = string.format
 
-local logging = {quiet = false, flush = false}
+local logging = {quiet = false, verbose = true, debug = false, flush = false}
 
 function logging:tofile(logfile, max_size)
 
@@ -199,7 +199,7 @@ local function debug_arg(v)
 	elseif type(v) == 'string' then
 		if v:find('\n', 1, true) then --multiline
 			v = v:gsub('\r\n', '\n')
-			v = glue.outdent(v, '\t\t\t')
+			v = glue.outdent(v)
 			v = '\n\n'..v..'\n'
 		end
 		v = v:gsub('[%z\1-\8\11-\31\128-\255]', '.')
@@ -229,8 +229,15 @@ local function log(self, severity, module, event, fmt, ...)
 	local time = time()
 	local date = os.date('%Y-%m-%d %H:%M:%S', time)
 	local msg = fmt and _(fmt, self.args(...))
+	if msg and msg:find('\n', 1, true) then --multiline
+		local arg1_multiline = msg:find'^\n\n'
+		msg = glue.outdent(msg, '\t')
+		if not arg1_multiline then
+			msg = '\n\n'..msg..'\n'
+		end
+	end
 	local entry = _('%s %s %-6s %-6s %-8s %-4s %s\n',
-		env, date, severity, module or '', event or '',
+		env, date, severity, module or '', (event or ''):sub(1, 8),
 		debug_arg(coroutine.running()), msg or '')
 	if severity ~= '' then --debug messages are transient
 		if self.logtofile then
@@ -244,13 +251,17 @@ local function log(self, severity, module, event, fmt, ...)
 			}
 		end
 	end
-	if not self.quiet then
+	if
+		not self.quiet
+		and (severity ~= '' or self.debug)
+		and (severity ~= 'note' or (self.verbose == true or self.verbose == module))
+	then
 		io.stderr:write(entry)
 		io.stderr:flush()
 	end
 end
-local function note  (self, ...) log(self, 'note', ...) end
-local function dbg   (self, ...) log(self, '', ...) end
+local function note (self, ...) log(self, 'note', ...) end
+local function dbg  (self, ...) log(self, '', ...) end
 
 local function warnif(self, module, event, cond, ...)
 	if not cond then return end
