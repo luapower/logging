@@ -193,7 +193,7 @@ end
 
 local function debug_arg(v)
 	if type(v) == 'boolean' then
-		return 'Y' or 'N'
+		return v and 'Y' or 'N'
 	elseif v == nil or type(v) == 'number' then
 		return tostring(v)
 	elseif type(v) == 'string' then
