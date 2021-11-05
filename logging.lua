@@ -13,6 +13,7 @@
 
 	debug.env <- 'dev' | 'prod', etc.
 	logging.filter <- {severity->true}
+	logging.censor <- f(severity, module, event, msg)
 
 	logging:tofile(logfile, max_disk_size)
 	logging:toserver(host, port, queue_size, timeout)
@@ -28,7 +29,7 @@ local clock = time.clock
 local time = time.time
 local _ = string.format
 
-local logging = {quiet = false, verbose = true, debug = false, flush = false}
+local logging = {quiet = false, verbose = true, debug = false, flush = false, censor = {}}
 
 function logging:tofile(logfile, max_size)
 
@@ -229,6 +230,11 @@ local function log(self, severity, module, event, fmt, ...)
 	local time = time()
 	local date = os.date('%Y-%m-%d %H:%M:%S', time)
 	local msg = fmt and _(fmt, self.args(...))
+	if next(self.censor) then
+		for _,censor in pairs(self.censor) do
+			msg = censor(msg, self, severity, module, event)
+		end
+	end
 	if msg and msg:find('\n', 1, true) then --multiline
 		local arg1_multiline = msg:find'^\n\n'
 		msg = glue.outdent(msg, '\t')
