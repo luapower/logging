@@ -11,7 +11,7 @@
 
 	logging.args(...) -> ...
 
-	debug.env <- 'dev' | 'prod', etc.
+	logging.env <- 'dev' | 'prod', etc.
 	logging.filter <- {severity->true}
 	logging.censor <- f(severity, module, event, msg)
 
@@ -226,7 +226,7 @@ end
 
 local function log(self, severity, module, event, fmt, ...)
 	if self.filter[severity] then return end
-	local env = debug.env and debug.env:upper():sub(1, 1) or 'D'
+	local env = logging.env and logging.env:upper():sub(1, 1) or 'D'
 	local time = time()
 	local date = os.date('%Y-%m-%d %H:%M:%S', time)
 	local msg = fmt and _(fmt, self.args(...))
@@ -251,7 +251,7 @@ local function log(self, severity, module, event, fmt, ...)
 		end
 		if self.logtoserver then
 			self:logtoserver{
-				env = debug.env, time = time,
+				env = logging.env, time = time,
 				severity = severity, module = module, event = event,
 				message = msg,
 			}
