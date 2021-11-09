@@ -12,6 +12,7 @@
 	logging.args(...) -> ...
 
 	logging.env <- 'dev' | 'prod', etc.
+	logging.deploy <- app deployment name
 	logging.filter <- {severity->true}
 	logging.censor <- f(severity, module, event, msg)
 
@@ -29,7 +30,15 @@ local clock = time.clock
 local time = time.time
 local _ = string.format
 
-local logging = {quiet = false, verbose = true, debug = false, flush = false, censor = {}}
+local logging = {
+	quiet = false,
+	verbose = true,
+	debug = false,
+	flush = false, --too slow (but you can tail)
+	censor = {},
+	queue_size = 10000,
+	timeout = 5,
+}
 
 function logging:tofile(logfile, max_size)
 
@@ -78,6 +87,9 @@ function logging:toserver(host, port, queue_size, timeout)
 	local sock = require'sock'
 	local queue = require'queue'
 
+	queue_size = queue_size or logging.queue_size
+	timeout = timeout or logging.timeout
+
 	local tcp
 
 	local function check(event, ret, err)
@@ -105,7 +117,7 @@ function logging:toserver(host, port, queue_size, timeout)
 
 	local send_thread = sock.newthread(function()
 		send_thread_suspended = false
-		local lenbuf = ffi.new'uint32_t[1]'
+		local lenbuf = glue.u32a(1)
 		while not stop do
 			local msg = queue:peek()
 			if msg then
@@ -251,7 +263,7 @@ local function log(self, severity, module, event, fmt, ...)
 		end
 		if self.logtoserver then
 			self:logtoserver{
-				env = logging.env, time = time,
+				deploy = logging.deploy, env = logging.env, time = time,
 				severity = severity, module = module, event = event,
 				message = msg,
 			}
