@@ -38,7 +38,6 @@ local logging = {
 	censor = {},
 	queue_size = 10000,
 	timeout = 5,
-	next_msg_id = 1,
 }
 
 function logging:tofile(logfile, max_size)
@@ -264,12 +263,10 @@ local function log(self, severity, module, event, fmt, ...)
 		end
 		if self.logtoserver then
 			self:logtoserver{
-				id = self.next_msg_id,
 				deploy = logging.deploy, env = logging.env, time = time,
 				severity = severity, module = module, event = event,
 				message = msg,
 			}
-			self.next_msg_id = self.next_msg_id + 1
 		end
 	end
 	if
@@ -307,7 +304,7 @@ init(logging)
 logging.__index = logging
 
 function logging.new()
-	return init(setmetatable({next_msg_id = 1}, logging))
+	return init(setmetatable({}, logging))
 end
 
 if not ... then
