@@ -103,25 +103,30 @@ function logging:toserver(host, port, queue_size, timeout)
 		if tcp then tcp:close(); tcp = nil end
 	end
 
-	local sleep_job
+	local reconn_sleeper
+	local stop
 
 	local function connect()
 		if tcp then return tcp end
-		tcp = check_io('sock.tcp', sock.tcp()); if not tcp then return end
+		tcp = check('sock.tcp', sock.tcp())
+		if not tcp then return end
 		local exp = timeout and clock() + timeout
-		if not check_io('connect', tcp:connect(host, port, exp)) then
-			--wait because connection_refused comes immediately.
-			sleep_job = sock.sleep_job()
-			sleep_job:sleep_until(exp)
-			sleep_job = nil
-			return false
+		while not stop do
+			if check_io('connect', tcp:connect(host, port, exp)) then
+				return true
+			end
+			--wait because 'connection_refused' error comes instantly on Linux.
+			if not stop and exp > time() + 0.1 then
+				reconn_sleeper = sock.sleep_job()
+				reconn_sleeper:sleep_until(exp)
+				reconn_sleeper = nil
+			end
 		end
-		return true
+		return false
 	end
 
 	local queue = queue.new(queue_size or 1/0)
 	local send_thread_suspended = true
-	local stop
 
 	local send_thread = sock.newthread(function()
 		send_thread_suspended = false
@@ -134,7 +139,7 @@ function logging:toserver(host, port, queue_size, timeout)
 					lenbuf[0] = #s
 					local len = ffi.string(lenbuf, ffi.sizeof(lenbuf))
 					local exp = timeout and clock() + timeout
-					if check('send', tcp:send(len..s, nil, exp)) then
+					if check_io('send', tcp:send(len..s, nil, exp)) then
 						queue:pop()
 					end
 				end
@@ -160,12 +165,11 @@ function logging:toserver(host, port, queue_size, timeout)
 
 	function self:toserver_stop()
 		stop = true
-		check_io('stop', nil, 'stopping')
+		check('stop', nil, 'stopping')
 		if send_thread_suspended then
 			sock.resume(send_thread)
-		elseif sleep_job then
-			sleep_job:wakeup()
-			sleep_job = nil
+		elseif reconn_sleeper then
+			reconn_sleeper:wakeup()
 		end
 	end
 
