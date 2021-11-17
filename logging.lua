@@ -103,12 +103,16 @@ function logging:toserver(host, port, queue_size, timeout)
 		if tcp then tcp:close(); tcp = nil end
 	end
 
+	local sleep_job
+
 	local function connect()
 		if tcp then return tcp end
 		tcp = check_io('sock.tcp', sock.tcp()); if not tcp then return end
 		local exp = timeout and clock() + timeout
 		if not check_io('connect', tcp:connect(host, port, exp)) then
-			sock.sleep_until(exp) --because connection_refused comes immediately.
+			--wait because connection_refused comes immediately.
+			sleep_job = sock.sleep_job()
+			sleep_job:sleep_until(exp)
 			return false
 		end
 		return true
@@ -158,6 +162,8 @@ function logging:toserver(host, port, queue_size, timeout)
 		check_io('stop', nil, 'stopping')
 		if send_thread_suspended then
 			sock.resume(send_thread)
+		elseif sleep_job then
+			sleep_job:wakeup()
 		end
 	end
 
