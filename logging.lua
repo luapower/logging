@@ -139,7 +139,7 @@ function logging:toserver(host, port, queue_size, timeout)
 				send_thread_suspended = false
 			end
 		end
-		check_io('stopped', nil, '')
+		check_io('stop', nil, 'stopped')
 		self.logtoserver = nil
 	end)
 
@@ -155,7 +155,7 @@ function logging:toserver(host, port, queue_size, timeout)
 
 	function self:toserver_stop()
 		stop = true
-		check_io('stop', nil, '')
+		check_io('stop', nil, 'stopping')
 		if send_thread_suspended then
 			sock.resume(send_thread)
 		end
