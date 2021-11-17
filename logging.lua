@@ -1,6 +1,6 @@
 --[[
 
-	file and tcp logging with capped disk & memory usage.
+	File and tcp logging with capped disk & memory usage.
 	Written by Cosmin Apreutesei. Public domain.
 
 	logging.log(severity, module, event, fmt, ...)
@@ -36,6 +36,7 @@ local logging = {
 	debug = false,
 	flush = false, --too slow (but you can tail)
 	censor = {},
+	max_disk_size = 16 * 1024^2,
 	queue_size = 10000,
 	timeout = 5,
 }
@@ -61,6 +62,8 @@ function logging:tofile(logfile, max_size)
 		size = check('size', f:attr'size'); if not f then return end
 		return true
 	end
+
+	max_size = max_size or self.max_disk_size
 
 	local function rotate(len)
 		if max_size and size + len > max_size / 2 then
