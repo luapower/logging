@@ -112,7 +112,7 @@ function logging:toserver(host, port, queue_size, timeout)
 		if not tcp then return end
 		local exp = timeout and clock() + timeout
 		while not stop do
-			if check_io('connect', tcp:connect(host, port, exp)) then
+			if check('connect', tcp:connect(host, port, exp)) then
 				return true
 			end
 			--wait because 'connection_refused' error comes instantly on Linux.
