@@ -113,6 +113,7 @@ function logging:toserver(host, port, queue_size, timeout)
 			--wait because connection_refused comes immediately.
 			sleep_job = sock.sleep_job()
 			sleep_job:sleep_until(exp)
+			sleep_job = nil
 			return false
 		end
 		return true
