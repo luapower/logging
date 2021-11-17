@@ -109,6 +109,7 @@ function logging:toserver(host, port, queue_size, timeout)
 		local exp = timeout and clock() + timeout
 		if not check_io('connect', tcp:connect(host, port, exp)) then
 			sock.sleep_until(exp) --because connection_refused comes immediately.
+			return false
 		end
 		return true
 	end
