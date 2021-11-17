@@ -165,6 +165,7 @@ function logging:toserver(host, port, queue_size, timeout)
 			sock.resume(send_thread)
 		elseif sleep_job then
 			sleep_job:wakeup()
+			sleep_job = nil
 		end
 	end
 
