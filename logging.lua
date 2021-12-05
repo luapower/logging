@@ -9,7 +9,7 @@
 	logging.warnif(module, event, condition, fmt, ...)
 	logging.logerror(module, event, fmt, ...)
 
-	logging.args(...) -> ...
+	logging.args(for_printing, ...) -> ...
 
 	logging.env <- 'dev' | 'prod', etc.
 	logging.deploy <- app deployment name
@@ -113,13 +113,13 @@ function logging:toserver(host, port, queue_size, timeout)
 		if tcp then return tcp end
 		tcp = check('sock.tcp', sock.tcp())
 		if not tcp then return end
-		local exp = timeout and clock() + timeout
 		while not stop do
+			local exp = timeout and clock() + timeout
 			if check('connect', tcp:connect(host, port, exp)) then
 				return true
 			end
 			--wait because 'connection_refused' error comes instantly on Linux.
-			if not stop and exp > time() + 0.1 then
+			if not stop and exp > clock() + 0.1 then
 				reconn_sleeper = sock.sleep_job()
 				reconn_sleeper:sleep_until(exp)
 				reconn_sleeper = nil
@@ -202,7 +202,8 @@ local prefixes = {
 }
 
 local function debug_prefix(v)
-	return type(v) == 'table' and v.debug_prefix or prefixes[debug_type(v)]
+	return type(v) == 'table' and v.debug_prefix
+		or prefixes[debug_type(v)] or debug_type(v)
 end
 
 local ids_db = {} --{type->{last_id=,[obj]->id}}
@@ -223,18 +224,20 @@ local function debug_id(v)
 	return debug_prefix(v)..id
 end
 
-local function debug_arg(v)
+local function debug_arg(for_printing, v)
 	if type(v) == 'boolean' then
 		return v and 'Y' or 'N'
 	elseif v == nil or type(v) == 'number' then
 		return tostring(v)
 	elseif type(v) == 'string' then
-		if v:find('\n', 1, true) then --multiline
-			v = v:gsub('\r\n', '\n')
-			v = glue.outdent(v)
-			v = '\n\n'..v..'\n'
+		if not for_printing then
+			if v:find('\n', 1, true) then --multiline
+				v = v:gsub('\r\n', '\n')
+				v = glue.outdent(v)
+				v = '\n\n'..v..'\n'
+			end
+			v = v:gsub('[%z\1-\8\11-\31\128-\255]', '.')
 		end
-		v = v:gsub('[%z\1-\8\11-\31\128-\255]', '.')
 		return v
 	else --table, function, thread, cdata
 		return names[v]
@@ -244,13 +247,13 @@ local function debug_arg(v)
 	end
 end
 
-function logging.args(...)
+function logging.args(for_printing, ...)
 	if select('#', ...) == 1 then
-		return debug_arg((...))
+		return debug_arg(for_printing, (...))
 	end
 	local args, n = {...}, select('#',...)
 	for i=1,n do
-		args[i] = debug_arg(args[i])
+		args[i] = debug_arg(for_printing, args[i])
 	end
 	return unpack(args, 1, n)
 end
@@ -260,7 +263,7 @@ local function log(self, severity, module, event, fmt, ...)
 	local env = logging.env and logging.env:upper():sub(1, 1) or 'D'
 	local time = time()
 	local date = os.date('%Y-%m-%d %H:%M:%S', time)
-	local msg = fmt and _(fmt, self.args(...))
+	local msg = fmt and _(fmt, self.args(false, ...))
 	if next(self.censor) then
 		for _,censor in pairs(self.censor) do
 			msg = censor(msg, self, severity, module, event)
@@ -275,7 +278,7 @@ local function log(self, severity, module, event, fmt, ...)
 	end
 	local entry = _('%s %s %-6s %-6s %-8s %-4s %s\n',
 		env, date, severity, module or '', (event or ''):sub(1, 8),
-		debug_arg(coroutine.running()), msg or '')
+		debug_arg(false, (coroutine.running())), msg or '')
 	if severity ~= '' then --debug messages are transient
 		if self.logtofile then
 			self:logtofile(entry)
