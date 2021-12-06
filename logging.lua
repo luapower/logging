@@ -9,7 +9,8 @@
 	logging.warnif(module, event, condition, fmt, ...)
 	logging.logerror(module, event, fmt, ...)
 
-	logging.args(for_printing, ...) -> ...
+	logging.args(...) -> ...
+	logging.printargs(...) -> ...
 
 	logging.env <- 'dev' | 'prod', etc.
 	logging.deploy <- app deployment name
@@ -247,16 +248,20 @@ local function debug_arg(for_printing, v)
 	end
 end
 
-function logging.args(for_printing, ...)
-	if select('#', ...) == 1 then
-		return debug_arg(for_printing, (...))
+local function logging_args_func(for_printing)
+	return function(...)
+		if select('#', ...) == 1 then
+			return debug_arg(for_printing, (...))
+		end
+		local args, n = {...}, select('#',...)
+		for i=1,n do
+			args[i] = debug_arg(for_printing, args[i])
+		end
+		return unpack(args, 1, n)
 	end
-	local args, n = {...}, select('#',...)
-	for i=1,n do
-		args[i] = debug_arg(for_printing, args[i])
-	end
-	return unpack(args, 1, n)
 end
+logging.args      = logging_args_func(false)
+logging.printargs = logging_args_func(true)
 
 local function log(self, severity, module, event, fmt, ...)
 	if self.filter[severity] then return end
