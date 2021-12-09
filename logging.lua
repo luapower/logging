@@ -268,7 +268,7 @@ local function log(self, severity, module, event, fmt, ...)
 	local env = logging.env and logging.env:upper():sub(1, 1) or 'D'
 	local time = time()
 	local date = os.date('%Y-%m-%d %H:%M:%S', time)
-	local msg = fmt and _(fmt, self.args(false, ...))
+	local msg = fmt and _(fmt, self.args(...))
 	if next(self.censor) then
 		for _,censor in pairs(self.censor) do
 			msg = censor(msg, self, severity, module, event)
