@@ -225,26 +225,46 @@ local function debug_id(v)
 	return debug_prefix(v)..id
 end
 
+local pp_skip = {
+	__index = 1,
+	__newindex = 1,
+	__mode = 1,
+}
+local function pp_filter(v, k, t)
+	if type(v) == 'function' then return end --skip methods.
+	if getmetatable(t) == t and pp_skip[k] then return end --skip inherits.
+	return true
+end
+local pp_opt = {filter = pp_filter}
+local pp_opt_compact = {filter = pp_filter, indent = false}
+local function pp_compact(v)
+	local s = pp.format(v, pp_opt)
+	return #s < 50 and pp.format(v, pp_opt_compact) or s
+end
+
 local function debug_arg(for_printing, v)
-	if type(v) == 'boolean' then
+	if v == nil then
+		return 'nil'
+	elseif type(v) == 'boolean' then
 		return v and 'Y' or 'N'
-	elseif v == nil or type(v) == 'number' then
-		return tostring(v)
-	elseif type(v) == 'string' then
+	elseif type(v) == 'number' then
+		return _('%.17g', v)
+	else --string, table, function, thread, cdata
+		v = type(v) == 'string' and v
+			or names[v]
+			or (getmetatable(v) and getmetatable(v).__tostring and tostring(v))
+			or (type(v) == 'table' and not v.type and not v.debug_prefix and pp_compact(v))
+			or debug_id(v)
 		if not for_printing then
-			if v:find('\n', 1, true) then --multiline
+			if v:find('\n', 1, true) then --multiline, make room for it.
 				v = v:gsub('\r\n', '\n')
 				v = glue.outdent(v)
 				v = '\n\n'..v..'\n'
 			end
+			--avoid messing up the terminal when tailing logs.
 			v = v:gsub('[%z\1-\8\11-\31\128-\255]', '.')
 		end
 		return v
-	else --table, function, thread, cdata
-		return names[v]
-			or (getmetatable(v) and getmetatable(v).__tostring and tostring(v))
-			or (type(v) == 'table' and not v.type and not v.debug_prefix and pp.format(v))
-			or debug_id(v)
 	end
 end
 
@@ -347,6 +367,8 @@ if not ... then
 	end)
 
 	sock.run(function()
+
+		logging.debug = true
 
 		logging:tofile('test.log', 64000)
 		logging:toserver('127.0.0.1', 1234, 998, .5)
