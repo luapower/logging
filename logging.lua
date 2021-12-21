@@ -1,6 +1,6 @@
 --[[
 
-	File and tcp logging with capped disk & memory usage.
+	File and TCP logging with capped disk & memory usage.
 	Written by Cosmin Apreutesei. Public domain.
 
 	logging.log(severity, module, event, fmt, ...)
